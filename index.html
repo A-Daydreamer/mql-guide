@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>从筛排分到 MQL：把查询写成一段能改的话</title>
+<style>
+:root{
+  --color-primary:#1456f0; --color-primary-hover:#0d47d9;
+  --color-primary-fill-light:rgba(20,86,240,.06);
+  --color-success:#35bd4b; --color-danger:#f54a45; --color-warning:#ff811a;
+  --text-title:#1f2329; --text-body:#373c43; --text-caption:#646a73; --text-disabled:#8f959e;
+  --bg-base:#f5f6f7; --bg-body:#fff; --bg-body-overlay:#f8f9fa;
+  --border-card:rgba(31,35,41,.12); --border-line:rgba(31,35,41,.08);
+  --radius-s:4px; --radius-m:6px; --radius-l:8px; --radius-xl:12px;
+  --spacing-xs:8px; --spacing-sm:12px; --spacing-md:16px; --spacing-lg:20px; --spacing-xl:28px; --spacing-2xl:40px;
+  --font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --font-mono:"SF Mono",SFMono-Regular,ui-monospace,Menlo,Consolas,monospace;
+  --sidebar-w:246px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-family);background:var(--bg-base);color:var(--text-body);
+  font-size:14px;line-height:1.72;-webkit-font-smoothing:antialiased}
+
+/* ============ 模式切换 ============ */
+.modebar{position:fixed;top:0;left:0;right:0;height:48px;background:rgba(255,255,255,.94);
+  backdrop-filter:saturate(180%) blur(12px);border-bottom:.5px solid var(--border-card);
+  display:flex;align-items:center;justify-content:space-between;padding:0 var(--spacing-lg);z-index:100}
+.modebar .brand{font-size:13px;font-weight:600;color:var(--text-title);letter-spacing:.2px}
+.modebar .brand span{color:var(--text-disabled);font-weight:400;margin-left:8px}
+
+/* ============ 布局 ============ */
+.layout{display:flex;max-width:1320px;margin:0 auto;padding-top:48px}
+.sidebar{width:var(--sidebar-w);flex-shrink:0;position:sticky;top:48px;align-self:flex-start;
+  height:calc(100vh - 48px);overflow-y:auto;padding:var(--spacing-lg) var(--spacing-sm) var(--spacing-2xl)}
+.sidebar-t{font-size:11px;font-weight:600;color:var(--text-disabled);letter-spacing:.6px;
+  text-transform:uppercase;padding:0 var(--spacing-sm);margin-bottom:var(--spacing-xs)}
+.nav-item{display:flex;align-items:baseline;gap:9px;padding:7px var(--spacing-sm);border-radius:var(--radius-m);
+  font-size:13px;color:var(--text-caption);text-decoration:none;transition:all .12s;line-height:1.5}
+.nav-item:hover{background:var(--bg-body-overlay);color:var(--text-title)}
+.nav-item.active{background:var(--color-primary-fill-light);color:var(--color-primary);font-weight:600}
+.nav-item .t{font-size:11.5px;color:var(--text-disabled);
+  flex-shrink:0;width:46px}
+.nav-item.active .t{color:var(--color-primary)}
+main{flex:1;min-width:0;background:var(--bg-body);border-radius:var(--radius-xl);
+  margin:var(--spacing-lg) var(--spacing-lg) var(--spacing-2xl) 0;
+  padding:var(--spacing-2xl) 46px var(--spacing-2xl);box-shadow:0 1px 3px rgba(31,35,41,.05)}
+
+/* ============ Banner ============ */
+.banner{background:linear-gradient(135deg,#1456f0 0%,#0d3fb5 100%);border-radius:var(--radius-xl);
+  padding:var(--spacing-2xl) var(--spacing-xl);margin:0 0 var(--spacing-2xl);color:#fff}
+.banner .kicker{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  background:rgba(255,255,255,.16);padding:4px 11px;border-radius:20px;margin-bottom:var(--spacing-md)}
+.banner h1{font-size:29px;line-height:1.34;font-weight:700;letter-spacing:-.4px;margin-bottom:var(--spacing-sm)}
+.banner .sub{font-size:14.5px;line-height:1.68;color:rgba(255,255,255,.86);max-width:640px}
+.banner .motto{margin-top:19px;padding-top:15px;border-top:.5px solid rgba(255,255,255,.16);
+  font-size:14.5px;font-weight:500;letter-spacing:.6px;
+  color:rgba(255,255,255,.86);display:flex;align-items:center;flex-wrap:wrap;gap:0;max-width:640px}
+.banner .motto .sep{opacity:.42;margin:0 11px;font-weight:400}
+.banner .tags{display:flex;flex-wrap:wrap;gap:var(--spacing-xs);margin-top:var(--spacing-lg)}
+.banner .tag{font-size:12px;background:rgba(255,255,255,.14);border:.5px solid rgba(255,255,255,.22);
+  padding:4px 11px;border-radius:var(--radius-m)}
+
+/* ============ 章节 ============ */
+.scene{scroll-margin-top:64px;padding-top:var(--spacing-xs)}
+.scene-head{margin-bottom:var(--spacing-lg)}
+.scene-kicker{display:flex;align-items:center;gap:var(--spacing-xs);font-size:11.5px;
+  font-weight:600;color:var(--color-primary);letter-spacing:.5px;margin-bottom:6px}
+h2{font-size:24px;line-height:1.4;font-weight:700;color:var(--text-title);letter-spacing:-.3px;
+  margin-bottom:var(--spacing-xs)}
+h3{font-size:16.5px;line-height:1.5;font-weight:600;color:var(--text-title);
+  margin:var(--spacing-xl) 0 var(--spacing-xs)}
+h4{font-size:14.5px;font-weight:600;color:var(--text-title);margin:var(--spacing-lg) 0 6px}
+.lead{font-size:15px;line-height:1.72;color:var(--text-caption)}
+p{margin-bottom:var(--spacing-sm)}
+hr{border:0;border-top:.5px solid var(--border-line);margin:var(--spacing-2xl) 0}
+strong{font-weight:600;color:var(--text-title)}
+em{font-style:normal;background:rgba(255,214,0,.22);padding:1px 3px;border-radius:2px}
+code{font-family:var(--font-mono);font-size:12.5px;background:rgba(31,35,41,.05);
+  padding:1.5px 5px;border-radius:var(--radius-s);color:#c41d7f;word-break:break-word}
+.small{font-size:12.5px;line-height:1.65}
+.muted{color:var(--text-caption)}
+
+/* ============ 卡片 ============ */
+.card{background:#fff;border:.5px solid var(--border-card);border-radius:var(--radius-l);
+  padding:var(--spacing-md);margin-bottom:var(--spacing-md)}
+.card.flat{background:var(--bg-body-overlay);border:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--spacing-sm)}
+
+/* ============ 代码 ============ */
+.code-wrap{position:relative;margin-bottom:var(--spacing-md)}
+.code{background:#1f2329;border-radius:var(--radius-l);padding:15px 17px;
+  font-family:var(--font-mono);font-size:12.5px;line-height:1.85;color:#d5d8dc;
+  overflow-x:auto;white-space:pre;letter-spacing:-.1px}
+.code .kw{color:#79c0ff;font-weight:500}
+.code .fn{color:#d2a8ff}
+.code .str{color:#a5d6a7}
+.code .cmt{color:#6e7681;font-style:italic}
+.code .paren{color:#ffab70;font-weight:600}
+.code .hi{background:rgba(255,214,0,.16);border-radius:2px}
+.copy-btn{position:absolute;top:9px;right:9px;background:rgba(255,255,255,.1);border:0;
+  color:#a8b0b8;font-size:11px;font-family:var(--font-family);padding:3px 9px;
+  border-radius:var(--radius-s);cursor:pointer;transition:all .14s;z-index:2}
+.copy-btn:hover{background:rgba(255,255,255,.2);color:#fff}
+.copy-btn.done{background:var(--color-success);color:#fff}
+
+/* ============ 表格 ============ */
+table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:var(--spacing-md)}
+th{text-align:left;font-weight:600;color:var(--text-caption);font-size:12px;
+  padding:8px 11px;background:var(--bg-body-overlay);border-bottom:.5px solid var(--border-card);
+  white-space:nowrap}
+td{padding:9px 11px;border-bottom:.5px solid var(--border-line);vertical-align:top;line-height:1.6}
+tr:last-child td{border-bottom:0}
+.ok{color:var(--color-success);font-weight:700}
+.no{color:var(--color-danger);font-weight:700}
+
+/* ============ 演示位 ============ */
+.demo{border-radius:var(--radius-l);padding:var(--spacing-sm) var(--spacing-md);
+  margin-bottom:var(--spacing-md);font-size:13px;line-height:1.68}
+.demo .dh{display:flex;align-items:center;gap:var(--spacing-xs);font-size:11.5px;
+  font-weight:600;margin-bottom:5px}
+.demo.live{background:rgba(20,86,240,.05);border:.5px dashed rgba(20,86,240,.4)}
+.demo.live .dh{color:var(--color-primary)}
+.demo.rec{background:rgba(53,189,75,.05);border:.5px dashed rgba(53,189,75,.45)}
+.demo.rec .dh{color:#1a7f37}
+.demo .must{font-size:10px;background:var(--color-danger);color:#fff;padding:1px 6px;
+  border-radius:var(--radius-s);font-weight:600}
+.demo .db{color:var(--text-body)}
+
+/* ============ 拆解图示（纯 CSS，无需素材） ============ */
+.said{background:#fff;border:.5px solid var(--border-card);border-radius:var(--radius-m);
+  padding:13px 16px 13px 22px;font-size:14.5px;color:var(--text-title);
+  margin-bottom:var(--spacing-md);position:relative;line-height:1.7;font-weight:500}
+.said::before{content:'“';position:absolute;left:7px;top:4px;font-size:22px;
+  color:var(--text-disabled);opacity:.45}
+.decomp{background:var(--bg-body-overlay);border-radius:var(--radius-l);
+  padding:var(--spacing-lg);margin-bottom:var(--spacing-md)}
+.arrow-down{text-align:center;color:var(--text-disabled);font-size:15px;line-height:1;
+  margin:2px 0 var(--spacing-sm)}
+.cond-group{border:.5px solid var(--border-card);border-radius:var(--radius-m);
+  background:#fff;padding:11px 13px;margin-bottom:var(--spacing-xs)}
+.cond-group .gh{font-size:11.5px;font-weight:600;color:var(--color-primary);margin-bottom:6px;
+  display:flex;align-items:center;gap:6px}
+.cond-group .gh .op{font-family:var(--font-mono);font-size:10.5px;background:var(--color-primary-fill-light);
+  padding:1px 6px;border-radius:3px}
+.cond-group ul{list-style:none;margin:0;padding:0}
+.cond-group li{font-size:12.5px;line-height:1.9;color:var(--text-body);padding-left:14px;position:relative}
+.cond-group li::before{content:'·';position:absolute;left:4px;color:var(--text-disabled)}
+.nums{display:flex;gap:var(--spacing-sm);flex-wrap:wrap;margin-top:var(--spacing-sm)}
+.num-box{flex:1;min-width:88px;background:#fff;border:.5px solid var(--border-card);
+  border-radius:var(--radius-m);padding:10px 12px;text-align:center}
+.num-box b{display:block;font-size:23px;line-height:1.24;color:var(--color-primary);font-weight:700}
+.num-box span{font-size:11.5px;color:var(--text-caption)}
+
+/* 三句翻译（钩子专用） */
+.trans{display:grid;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)}
+.tr-item{background:#fff;border:.5px solid var(--border-card);border-radius:var(--radius-m);
+  padding:13px 15px;display:flex;gap:12px;align-items:flex-start}
+.tr-item .tn{flex-shrink:0;width:22px;height:22px;border-radius:50%;
+  background:var(--color-primary-fill-light);color:var(--color-primary);
+  font-size:12px;font-weight:700;line-height:22px;text-align:center;margin-top:1px}
+.tr-item .tb{flex:1;min-width:0}
+.tr-item .tq{font-size:13.5px;font-weight:600;color:var(--text-title);margin-bottom:5px}
+.tr-item .tq em{font-style:normal;color:var(--color-danger);font-weight:600}
+.tr-item .ta{font-size:12.5px;line-height:1.8;color:var(--text-body)}
+.tr-item .ta .lb{display:inline-block;font-size:10.5px;font-weight:600;padding:0 5px;
+  border-radius:3px;margin-right:5px;vertical-align:1px}
+.tr-item .ta .lb.p{background:rgba(245,74,69,.1);color:var(--color-danger)}
+.tr-item .ta .lb.s{background:rgba(53,189,75,.12);color:#1a7f37}
+.tr-item .ta .row+.row{margin-top:3px}
+
+
+/* ===== 录屏播放器 ===== */
+.vid{margin:var(--spacing-md) 0;border-radius:var(--radius-l);overflow:hidden;
+  border:.5px solid rgba(53,189,75,.45);background:#fff}
+.vid .vh{display:flex;align-items:center;gap:var(--spacing-xs);flex-wrap:wrap;
+  padding:8px var(--spacing-md);background:rgba(53,189,75,.06);
+  border-bottom:.5px solid rgba(53,189,75,.3);font-size:11.5px;font-weight:600;color:#1a7f37}
+.vid .vh .vlen{font-weight:500;color:var(--text-caption);font-family:var(--font-mono);font-size:11px}
+.vid .vh .vtip{margin-left:auto;font-weight:500;color:var(--text-caption);font-size:11px}
+.vid .vstage{position:relative;background:#f5f6f7;line-height:0}
+.vid video{width:100%;display:block;background:#f5f6f7}
+.vid .vnote{padding:9px var(--spacing-md);font-size:12.5px;line-height:1.75;
+  color:var(--text-body);border-top:.5px solid var(--border-card)}
+.vid .vbeats{display:flex;gap:6px;flex-wrap:wrap;padding:0 var(--spacing-md) 10px}
+.vid .vbeat{font-size:11px;font-family:var(--font-mono);color:var(--text-caption);
+  background:var(--fill-secondary);border-radius:var(--radius-s);padding:2px 7px;
+  cursor:pointer;border:.5px solid transparent;transition:all .15s}
+.vid .vbeat:hover{color:#1a7f37;border-color:rgba(53,189,75,.4);background:rgba(53,189,75,.07)}
+.vid .vbeat b{font-weight:700;color:var(--text-body)}
+.recall{background:#fff;border:.5px solid var(--border-card);border-left:2.5px solid var(--color-primary);
+  border-radius:0 var(--radius-m) var(--radius-m) 0;padding:11px 14px;margin-bottom:var(--spacing-md)}
+.recall .rt{font-size:11px;font-weight:700;color:var(--color-primary);letter-spacing:.4px;margin-bottom:6px}
+.recall .rl{font-size:12.5px;line-height:1.85;color:var(--text-body);font-family:var(--font-mono);letter-spacing:-.1px}
+
+/* ============ 互动答题 ============ */
+.quiz{border:.5px solid var(--border-card);border-radius:var(--radius-xl);
+  padding:var(--spacing-lg);margin-bottom:var(--spacing-md);background:#fff}
+.quiz-h{display:flex;align-items:center;gap:var(--spacing-xs);margin-bottom:var(--spacing-xs)}
+.quiz-kind{font-size:11px;line-height:19px;font-weight:600;padding:0 8px;border-radius:var(--radius-s);
+  background:rgba(255,129,26,.14);color:#c05600;flex-shrink:0}
+.quiz-q{font-size:15px;font-weight:500;line-height:1.66;margin-bottom:var(--spacing-sm);color:var(--text-title)}
+.opt-list{display:grid;gap:var(--spacing-xs)}
+.opt{display:flex;align-items:flex-start;gap:10px;width:100%;text-align:left;
+  padding:11px 14px;border-radius:var(--radius-m);border:.5px solid var(--border-card);
+  background:#fff;cursor:pointer;font-size:13.5px;line-height:1.62;color:var(--text-title);
+  font-family:var(--font-family);transition:all .12s}
+.opt:hover:not(.locked){border-color:rgba(20,86,240,.45);background:var(--color-primary-fill-light)}
+.opt .k{flex-shrink:0;width:20px;height:20px;border-radius:50%;background:var(--bg-base);
+  font-size:11.5px;line-height:20px;text-align:center;color:var(--text-caption);font-weight:600}
+.opt .txt{flex:1}
+.opt .txt code{font-size:12.5px}
+.opt.locked{cursor:default}
+.opt.right{border-color:rgba(53,189,75,.55);background:rgba(53,189,75,.06)}
+.opt.right .k{background:var(--color-success);color:#fff}
+.opt.wrong{border-color:rgba(245,74,69,.45);background:rgba(245,74,69,.05)}
+.opt.wrong .k{background:var(--color-danger);color:#fff}
+.opt.dim{opacity:.5}
+.fb{margin-top:var(--spacing-sm);padding:var(--spacing-md);border-radius:var(--radius-m);
+  background:var(--bg-body-overlay);font-size:13px;line-height:1.75;color:var(--text-body);display:none}
+.fb.show{display:block}
+.fb-t{font-weight:600;color:var(--text-title);margin-bottom:6px}
+.fb ul{margin:0;padding-left:18px}
+.fb li{margin-bottom:3px}
+.ans-code{margin-top:10px;background:#1f2329;border-radius:var(--radius-m);
+  padding:10px 14px;position:relative;font-family:var(--font-mono);font-size:12.5px;color:#a5d6a7}
+.try{margin-top:9px;font-size:12.5px;color:var(--color-primary);display:flex;align-items:center;gap:6px}
+
+/* ============ pill ============ */
+.pill{display:inline-block;font-size:11.5px;padding:1.5px 8px;border-radius:20px;font-weight:500;white-space:nowrap}
+.pill.blue{background:var(--color-primary-fill-light);color:var(--color-primary)}
+.pill.green{background:rgba(53,189,75,.1);color:#1a7f37}
+.pill.orange{background:rgba(255,129,26,.12);color:#c05600}
+.pill.red{background:rgba(245,74,69,.1);color:var(--color-danger)}
+.pill.gray{background:var(--bg-base);color:var(--text-caption)}
+
+/* ============ 键盘键 ============ */
+kbd{font-family:var(--font-mono);font-size:11.5px;background:#fff;border:.5px solid var(--border-card);
+  border-bottom-width:1.5px;border-radius:var(--radius-s);padding:1px 6px;color:var(--text-title);
+  white-space:nowrap;box-shadow:0 1px 0 rgba(31,35,41,.04)}
+
+/* ============ 重置按钮 ============ */
+.quiz-actions{display:flex;gap:var(--spacing-xs);margin-top:var(--spacing-sm)}
+.quiz-reset-btn{background:var(--bg-base);border:.5px solid var(--border-card);
+  color:var(--text-caption);font-size:12px;font-family:var(--font-family);
+  padding:5px 14px;border-radius:var(--radius-s);cursor:pointer;transition:all .14s}
+.quiz-reset-btn:hover{background:#fff;border-color:rgba(20,86,240,.35);color:var(--color-primary)}
+
+/* ============ 分节标题 ============ */
+.scene-subhead{display:flex;align-items:center;gap:var(--spacing-sm);
+  margin:var(--spacing-xl) 0 var(--spacing-md);font-size:13px;font-weight:600;color:var(--text-title)}
+.scene-subhead::before,.scene-subhead::after{content:'';flex:1;height:.5px;background:var(--border-line)}
+.scene-subhead .tag{flex-shrink:0;background:var(--color-primary-fill-light);color:var(--color-primary);
+  padding:3px 12px;border-radius:20px;font-size:11.5px;font-weight:600}
+
+/* ============ Token 选择填空 ============ */
+.token-puzzle{border:.5px solid var(--border-card);border-radius:var(--radius-xl);
+  padding:var(--spacing-lg);margin-bottom:var(--spacing-md);background:#fff}
+.token-slots{min-height:52px;border:1.5px dashed var(--border-card);border-radius:var(--radius-m);
+  padding:10px 12px;margin-bottom:var(--spacing-sm);display:flex;flex-wrap:wrap;gap:6px;
+  align-items:center;background:var(--bg-body-overlay);transition:border-color .2s}
+.token-slots.filled{border-style:solid;border-color:rgba(20,86,240,.3)}
+.token-slots.empty::after{content:'点击下方词块，按顺序拼出 MQL';color:var(--text-disabled);
+  font-size:12.5px;font-style:italic}
+.token-slot{background:#fff;border:.5px solid var(--border-card);border-radius:var(--radius-s);
+  padding:4px 10px;font-family:var(--font-mono);font-size:12.5px;color:var(--text-title);
+  cursor:grab;transition:all .14s;line-height:1.5;user-select:none}
+.token-slot:active{cursor:grabbing}
+.token-slot.dragging{opacity:.35;transform:scale(.96)}
+.token-slot:hover{border-color:var(--color-danger);color:var(--color-danger);
+  background:rgba(245,74,69,.05)}
+.token-slot:hover::after{content:' ×';font-weight:700}
+.token-options{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:var(--spacing-sm)}
+.token-opt{background:#fff;border:.5px solid var(--border-card);border-radius:var(--radius-s);
+  padding:6px 13px;font-family:var(--font-mono);font-size:12.5px;color:var(--text-title);
+  cursor:pointer;transition:all .14s;line-height:1.5;user-select:none}
+.token-opt:hover:not(.used){border-color:rgba(20,86,240,.5);background:var(--color-primary-fill-light);
+  color:var(--color-primary);transform:translateY(-1px)}
+.token-opt.used{opacity:.28;cursor:default;pointer-events:none;background:var(--bg-base)}
+.puzzle-actions{display:flex;gap:var(--spacing-xs);align-items:center}
+.puzzle-submit{background:var(--color-primary);border:0;color:#fff;font-size:13px;
+  font-family:var(--font-family);font-weight:600;padding:7px 22px;border-radius:var(--radius-s);
+  cursor:pointer;transition:all .14s}
+.puzzle-submit:hover{background:var(--color-primary-hover)}
+.puzzle-reset{background:var(--bg-base);border:.5px solid var(--border-card);
+  color:var(--text-caption);font-size:12.5px;font-family:var(--font-family);
+  padding:6px 16px;border-radius:var(--radius-s);cursor:pointer;transition:all .14s}
+.puzzle-reset:hover{background:#fff;border-color:rgba(20,86,240,.35);color:var(--color-primary)}
+.puzzle-result{margin-top:var(--spacing-sm);padding:var(--spacing-md);border-radius:var(--radius-m);
+  background:var(--bg-body-overlay);font-size:13px;line-height:1.75;color:var(--text-body);display:none}
+.puzzle-result.show{display:block}
+.puzzle-result .ok{color:var(--color-success);font-weight:600}
+.puzzle-result .no{color:var(--color-danger);font-weight:600}
+
+/* ============ 响应式 ============ */
+@media(max-width:1000px){
+  .sidebar{display:none}
+  main{margin:var(--spacing-sm);padding:var(--spacing-lg) var(--spacing-lg) var(--spacing-2xl)}
+  .banner h1{font-size:23px}
+  .grid2{grid-template-columns:1fr}
+}
+@media(max-width:620px){
+  main{padding:var(--spacing-md) var(--spacing-sm)}
+  .banner{padding:var(--spacing-lg) var(--spacing-md)}
+  .banner h1{font-size:19px}
+  h2{font-size:19px}
+  .code{font-size:11.5px}
+  .modebar{padding:0 var(--spacing-sm)}
+  .modebar .brand span{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="modebar">
+  <div class="brand">产品面对面 · 从筛排分到 MQL<span>飞书项目</span></div>
+</div>
+
+<div class="layout">
+<aside class="sidebar">
+  <div class="sidebar-t">目录</div>
+  <a class="nav-item" href="#hook"><span class="t">开场</span><span>一句话需求</span></a>
+  <a class="nav-item" href="#s1"><span class="t">第一章</span><span>配置复杂条件</span></a>
+  <a class="nav-item" href="#s2"><span class="t">第二章</span><span>用文本来写查询</span></a>
+  <a class="nav-item" href="#s3"><span class="t">第三章</span><span>MQL 互动答题</span></a>
+  <a class="nav-item" href="#s4"><span class="t">第四章</span><span>巧用 MQL 编辑器</span></a>
+  <a class="nav-item" href="#s5"><span class="t">第五章</span><span>用 MQL 边写边改</span></a>
+  <a class="nav-item" href="#s6"><span class="t">第六章</span><span>巧用控件查询</span></a>
+  <a class="nav-item" href="#s7"><span class="t">第七章</span><span>用 MQL 统一口径</span></a>
+  <div class="sidebar-t" style="margin-top:var(--spacing-lg)">附录</div>
+  <a class="nav-item" href="#lib"><span class="t">查询库</span><span>按角色分类</span></a>
+  <a class="nav-item" href="#jql"><span class="t">JQL</span><span>迁移对照</span></a>
+</aside>
+
+<main>
+
+<!-- ============ Banner ============ -->
+<div class="banner">
+  <div class="kicker">产品面对面</div>
+  <h1>从筛排分到 MQL：把查询写成一段话</h1>
+  <p class="sub">今天会从大家每天在用的筛选、排序、分组讲起，看它们换成一段文字版的 MQL 之后能多做什么。不是用 MQL 替代筛排分——两者能力基本对等，但写成文字之后，条件看得清、改得快、传得开。</p>
+
+  <div class="tags">
+    <span class="tag">复杂条件编写</span>
+    <span class="tag">MQL 入门</span>
+    <span class="tag">筛排分进阶</span>
+    <span class="tag">已全量（可边听边试~）</span>
+  </div>
+</div>
+
+<!-- ============ 钩子 ============ -->
+<section class="scene" id="hook">
+  <div class="scene-head">
+    <div class="scene-kicker">开场</div>
+    <h2>一句话需求，背后是几个条件？</h2>
+    <p class="lead">先不讲功能，我们从一个典型的业务场景出发，来看一句可能每个 PMO 都收到过的话。</p>
+  </div>
+
+  <div class="said">老板说：这个月，我们有哪些重点需求有交付风险的？整理出来给我看下。</div>
+
+  <p>这句话你一听就懂，但要真去把数据查出来，会发现好像<strong>不知道从哪儿下手</strong>。所以在打开筛选面板之前，你默默地翻译了一下：</p>
+
+  <div class="trans">
+    <div class="tr-item">
+      <div class="tn">1</div>
+      <div class="tb">
+        <div class="tq">"<em>我们</em>" —— 是谁？</div>
+        <div class="ta">
+          <div class="row"><span class="lb p">问题</span>老板没有指定业务线，但要匹配和我们相关的范围</div>
+          <div class="row"><span class="lb s">补法</span>那我们可以<strong>按自己参与了的</strong>先圈一批数据出来</div>
+        </div>
+      </div>
+    </div>
+    <div class="tr-item">
+      <div class="tn">2</div>
+      <div class="tb">
+        <div class="tq">"<em>重点需求</em>" —— 什么算重点？</div>
+        <div class="ta">
+          <div class="row"><span class="lb p">问题</span>系统里没有一个字段叫"重点"</div>
+          <div class="row"><span class="lb s">补法</span>但其实我们已经建立起了下意识的联系——看优先级，我们可以<strong>按业务习惯选一些相对高优的</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="tr-item">
+      <div class="tn">3</div>
+      <div class="tb">
+        <div class="tq">"<em>有交付风险</em>" —— 这个最难</div>
+        <div class="ta">
+          <div class="row"><span class="lb p">问题</span>风险其实是一个很难判定的指标，<strong>没法直接查</strong></div>
+          <div class="row"><span class="lb s">补法</span>我们这里考虑分别从<strong>实例</strong>和<strong>节点</strong>两个维度来定义</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>翻译完，就是这样一套条件</h3>
+
+  <div class="decomp">
+    <div class="cond-group">
+      <div class="gh">第一组 · 范围</div>
+      <ul>
+        <li>我参与了的</li>
+        <li>优先级是 P0 或 P1 的</li>
+      </ul>
+    </div>
+
+    <div class="cond-group">
+      <div class="gh">第二组 · 风险</div>
+      <ul>
+        <li>承诺了要在这个月上线，但是至今还没完成的</li>
+        <li>或者，预计能在这个月上线，但是现在延期了的</li>
+      </ul>
+    </div>
+
+    <div class="nums">
+      <div class="num-box"><b>4</b><span>个条件</span></div>
+      <div class="num-box"><b>2</b><span>个条件组</span></div>
+      <div class="num-box"><b>2</b><span>层嵌套</span></div>
+    </div>
+  </div>
+
+  <p>第二组里两条是<strong>或</strong>的关系，任意一条成立就算有风险；而这一整组，又要和第一组<strong>同时</strong>成立。<em>这就是两层嵌套。</em></p>
+
+</section>
+
+<hr>
+
+<!-- ============ 第一章 ============ -->
+<section class="scene" id="s1">
+  <div class="scene-head">
+    <div class="scene-kicker">第一章</div>
+    <h2>复杂条件不容易配，也不容易改</h2>
+    <p class="lead">虽然我们按老板语义翻译出了条件，但距离它能出现在筛选面板上，还需要额外的努力。</p>
+  </div>
+
+  <h3>卡点一 · 你得先想清楚结构，才敢动手配置</h3>
+  <p>面板是<strong>按层级配置条件</strong>的：添加一个条件，或者创建一个条件组，再往组里加条件。这意味着——</p>
+
+  <div class="card flat">
+    <p class="small" style="margin:0"><strong>你必须在打开面板之前，就已经把上面那个结构想清楚了。</strong>哪几条归一组、组内用 "且" 还是 "或"、几组之间怎么连——全都得先在脑子里成型。</p>
+
+    <p class="small" style="margin:0">1. 因为面板<strong>不支持把条件拖来拖去</strong>，你没法先随便放着、之后再理。</p>
+    <p class="small" style="margin:0">2. <strong>单个条件也没办法原地转成条件组</strong>，第一步配错了后面就得推倒重来。</p>
+  </div>
+
+  <p>所以真实的操作顺序大概是这样：</p>
+
+  <div class="card">
+    <table style="margin:0">
+      <thead><tr><th style="width:52px">顺序</th><th>你要做的事</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill gray">1</span></td><td>在脑子里（或纸上）先把整个嵌套结构设计好</td></tr>
+        <tr><td><span class="pill gray">2</span></td><td>打开面板，添加第一个条件组</td></tr>
+        <tr><td><span class="pill gray">3</span></td><td>往组里逐条加条件，每条都是"选字段 → 选运算符 → 选目标值"</td></tr>
+        <tr><td><span class="pill gray">4</span></td><td>添加第二个条件组，重复上面这些操作</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>回顾一下我们给老板翻译出来的筛选目标，尝试配在面板里：</p>
+
+  <div class="decomp">
+    <div class="cond-group">
+      <div class="gh">第一组 · 范围</div>
+      <ul>
+        <li>我参与了的</li>
+        <li>优先级是 P0 或 P1 的</li>
+      </ul>
+    </div>
+
+    <div class="cond-group">
+      <div class="gh">第二组 · 风险</div>
+      <ul>
+        <li>承诺了要在这个月上线，但是至今还没完成的</li>
+        <li>或者，预计能在这个月上线，但是现在延期了的</li>
+      </ul>
+    </div>
+  </div>
+  
+  <div class="vid">
+    <div class="vh">配置多层嵌套的筛选条件 <span class="vlen">2:27</span>
+      <span class="vtip">点下方时间点可跳转</span></div>
+    <div class="vstage">
+      <video controls preload="metadata" playsinline
+             poster="_media/filter-config-poster.png"
+             src="_media/filter-config.mp4"></video>
+    </div>
+    <div class="vnote"><strong>两分半，</strong>这就是把开场那句话变成面板配置的实际代价——而且这还是<em>在想清楚结构</em>的前提下，对比翻译出的 4 个条件，实际配置的条件数量还有进一步增加。<br>
+    </div>
+    <div class="vbeats">
+      <span class="vbeat" data-t="0"><b>0:00</b> 打开筛选面板</span>
+      <span class="vbeat" data-t="20"><b>0:20</b> 配置第二个条件</span>
+      <span class="vbeat" data-t="60"><b>1:00</b> 添加一组筛选条件</span>
+      <span class="vbeat" data-t="105"><b>1:45</b> 配节点条件，面板已经要滚动了</span>
+      <span class="vbeat" data-t="146"><b>2:26</b> 配完全部 7 个条件，撑满整屏</span>
+    </div>
+  </div>
+
+  <h3>卡点二 · 改结构基本等于重做</h3>
+  <p>配好之后，老板补一句："<em>把我负责过或者评审过的需求也加进去</em>"</p>
+  <p>这是一次<strong>结构调整</strong>——要对人员范围的条件组做升级，从一个条件改成多个可选条件。预期很明确，但在面板里，你会发现：</p>
+
+  <div class="card">
+    <table style="margin:0">
+      <thead><tr><th style="width:38%">你想做的</th><th>面板里的实际操作</th></tr></thead>
+      <tbody>
+        <tr><td>把单个条件变成条件组</td><td><span class="no">没法</span>切换，只能在原地删掉、新添加条件组重新配一遍</td></tr>
+        <tr><td>把一个条件挪到另一组</td><td><span class="no">没法</span>拖拽，只能在原组删掉、去新组重新配一遍</td></tr>
+        <tr><td>给两个条件加一层括号</td><td><span class="no">没有</span>快捷入口，得新建组再把条件重新添加进去</td></tr>
+        <tr><td>把整组的 「且」 改成 「或」</td><td>这个<span class="ok">可以</span>直接改，是少数能原地调整的操作</td></tr>
+        <tr><td>把配好的条件发给同事</td><td>只能截图，让他自己照着配一遍</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="vid">
+    <div class="vh">把单个条件改成条件组 <span class="vlen">0:39</span></div>
+    <div class="vstage">
+      <video controls preload="metadata" playsinline
+             poster="_media/reorder-levels-poster.png"
+             src="_media/reorder-levels.mp4"></video>
+    </div>
+    <div class="vnote">根据老板的要求，其实就是把<strong>单个条件转成条件组</strong>，看起简单，但实现起来只能<em>新建一个组、把条件重新配一遍</em>。<br>
+    </div>
+  </div>
+
+  <div class="card flat">
+    <p style="margin:0"><strong>一句话总结：</strong>面板的能力没问题，<em>它的问题是不易编辑</em>——你只能推倒重来，不能灵活修改。</p>
+  </div>
+
+</section>
+
+<hr>
+
+<!-- ============ 第二章 ============ -->
+<section class="scene" id="s2">
+  <div class="scene-head">
+    <div class="scene-kicker">第二章</div>
+    <h2>那有没有一种办法，能边写边改？</h2>
+    <p class="lead">如果能像打草稿一样，先把条件一条条列出来，最后再决定怎么组合呢？</p>
+  </div>
+
+  <p>我们希望的是这样一个过程：</p>
+
+  <div class="card flat">
+    <p class="small" style="margin:0">先不管结构，<strong>把每个条件独立写下来</strong>，比如默认都用 「且」 连着 → 全都列完了，再回头看哪几条要改判断逻辑 → <strong>最后再调整顺序和层级</strong>。</p>
+  </div>
+
+  <p>这样一来，"想清楚结构"这件事就<strong>从动手之前挪到了动手之后</strong>。</p>
+
+  <h3>不知道大家有没有注意到</h3>
+  <p>在近期的视图更新里，筛选按钮左侧多了一个<strong>查询模式切换入口</strong>。我们点一下试试。</p>
+  
+  <div class="vid">
+    <div class="vh">切换至 MQL 查询模式 <span class="vlen">0:14</span></div>
+    <div class="vstage">
+      <video controls preload="metadata" playsinline
+             poster="_media/switch-to-mql-poster.png"
+             src="_media/switch-to-mql.mp4"></video>
+    </div>
+    <div class="vnote"><strong>只需一键</strong>，撑满筛选面板的多层嵌套条件，就转换成了一段代码文本。<br>
+    </div>
+  </div>
+
+  <p>让我们把这段代码文本复制出来，并简单调整下格式。</p>
+  
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code">`优先级` <span class="kw">IN</span> (<span class="str">'P0'</span>, <span class="str">'P1'</span>)
+<span class="kw">AND</span> <span class="paren">(</span><span class="fn">ALL_PARTICIPATE_PERSONS</span>() <span class="kw">IN</span> (<span class="str">'叶挺'</span>)
+  <span class="kw">OR</span> `产品负责人` <span class="kw">IN</span> (<span class="str">'叶挺'</span>) 
+  <span class="kw">OR</span> `评审参与人` <span class="kw">IN</span> (<span class="str">'叶挺'</span>)<span class="paren">)</span>
+<span class="kw">AND</span> <span class="paren">(</span><span class="paren">(</span><span class="fn">RELATIVE_DATETIME_EQ</span>(`预期完成时间`, <span class="str">'current_month'</span>)
+    <span class="kw">AND</span> `是否完成` = <span class="kw">FALSE</span>
+    <span class="kw">AND</span> `是否承诺` = <span class="kw">TRUE</span><span class="paren">)</span>
+  <span class="kw">OR</span> <span class="paren">(</span><span class="fn">RELATIVE_DATETIME_EQ</span>(<span class="fn">GET_NODE_ATTRIBUTE</span>(<span class="str">'待上线'</span>, <span class="str">'__节点排期_结束时间'</span>), <span class="str">'current_month'</span>)
+    <span class="kw">AND</span> <span class="fn">ARRAY_INTERSECT</span>(<span class="fn">RISK_LABEL</span>(), (<span class="str">'延期/待上线'</span>))<span class="paren">)</span><span class="paren">)</span></div>
+  </div>
+
+  <p><strong>这就是 MQL</strong>——Meegle Query Language，一套专为飞书项目设计的结构化查询语言，完整支持了视图现有的筛排分查询能力，同时兼容了 SQL 语法。所以刚才那套面板配置，含义没变，只是换了种写法出现在了文本框里。由于去掉了组件的约束，撑满一屏的复杂嵌套条件，通过几行代码的形式就表达了出来。以前觉得条件写多了，一屏放不下，都省着写、缩略着写，现在感觉还能继续写上十来行，能想到的约束都给它加上。</p>
+
+  <div class="card flat">
+    <p class="small" style="margin:0">用过 Jira 的朋友，这里可能已经眼熟了：<strong>它就是 JQL 模式</strong>。从筛选组件切过来，条件会连带转换，甚至不用学语法，你就可以把语句给写出来。</p>
+  </div>
+
+  <h3>看到一大堆代码，先别慌</h3>
+  <p>我猜有些朋友刚才那一眼已经开始头疼了。所以先说几个基本约定，<strong>但重点是：这些都不用记。</strong></p>
+
+  <div class="card">
+    <table style="margin:0">
+      <thead><tr><th style="width:32%">看到什么</th><th>它的意思</th></tr></thead>
+      <tbody>
+        <tr><td><code>`反引号`</code> 包着的</td><td>是<strong>字段名</strong>，跟你在面板里选的那个下拉项一一对应</td></tr>
+        <tr><td><code>'单引号'</code> 包着的</td><td>是<strong>目标值</strong>，比如 P0、某个人名、某个日期</td></tr>
+        <tr><td><code>字母()</code></td><td>是<strong>函数</strong>，对应面板里那些特殊控件或者复杂运算逻辑</td></tr>
+        <tr><td><code>TRUE</code> / <code>FALSE</code></td><td>是<strong>布尔字段的值</strong>，像「是否完成」「是否承诺」这种是非题，<strong>不用引号</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card flat">
+    <p style="margin:0">至于 <code>__节点排期_结束时间</code> 这种一看就头大的写法——<strong>你完全不需要背它。</strong>待会儿讲编辑器的时候你就知道为什么了。</p>
+    <p style="margin:8px 0 0">另外这段里出现了五个函数：<code>ALL_PARTICIPATE_PERSONS()</code>、<code>RELATIVE_DATETIME_EQ()</code>、<code>GET_NODE_ATTRIBUTE()</code>、<code>ARRAY_INTERSECT()</code>、<code>RISK_LABEL()</code>。<strong>它们全都对应面板里你点得到的东西</strong>——参与人员、相对时间、节点属性、节点延期标识，后面也会介绍。</p>
+  </div>
+
+  <h3>MQL 的结构：三段式</h3>
+  <p>抛开那些函数，MQL 的条件写法其实和面板<strong>一模一样的三段式</strong>：</p>
+
+  <div class="card">
+    <div style="text-align:center;padding:var(--spacing-xs) 0">
+      <span class="pill blue">筛选项</span>
+      <span style="color:var(--text-disabled);margin:0 6px">+</span>
+      <span class="pill green">运算符</span>
+      <span style="color:var(--text-disabled);margin:0 6px">+</span>
+      <span class="pill orange">目标值</span>
+    </div>
+    <table style="margin:var(--spacing-sm) 0 0">
+      <thead><tr><th style="width:46%">你在面板里点的</th><th>MQL 里的写法</th></tr></thead>
+      <tbody>
+        <tr><td>优先级 · 等于 · P0</td><td><code>`优先级` = 'P0'</code></td></tr>
+        <tr><td>业务线 · 属于 · 平台/视图</td><td><code>`业务线` IN ('平台','视图')</code></td></tr>
+        <tr><td>名称 · 包含 · AI</td><td><code>`名称` LIKE '%AI%'</code></td></tr>
+        <tr><td>标签 · 包含 · 体验<span class="pill gray" style="margin-left:5px">多选字段</span></td><td><code>ARRAY_CONTAINS(`标签`,'体验')</code></td></tr>
+        <tr><td>期望上线时间 · 为空</td><td><code>`期望上线时间` IS NULL</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>在视图里，你只会用到三个部分：<strong>条件</strong>（对应筛选）、<strong>GROUP BY</strong>（对应分组）、<strong>ORDER BY</strong>（对应排序）。<em>没有别的了。</em></p>
+
+</section>
+
+<hr>
+
+<!-- ============ 第三章 ============ -->
+<section class="scene" id="s3">
+  <div class="scene-head">
+    <div class="scene-kicker">第三章</div>
+    <h2>先拼一句，再挑错题</h2>
+    <p class="lead">不用一上来就选答案。先把词块拼出一条完整的 MQL，再看五道题里哪些写法有坑。</p>
+  </div>
+
+
+  <!-- ===== 第一部分：Token 选择填空 ===== -->
+  <div class="token-puzzle" id="puzzle1">
+    <div class="quiz-h"><span class="quiz-kind">热身 · 拼一句 MQL</span></div>
+    <div class="quiz-q">把下面的词块按正确顺序拼起来，表达：<strong>"筛出进行中的 P0 优先级需求，按业务线分组，按创建时间倒序展示"</strong></div>
+    <div class="token-slots empty" id="slots1"></div>
+    <div class="token-options" id="opts1">
+      <button class="token-opt" data-id="t9">`业务线`</button>
+      <button class="token-opt" data-id="t2">=</button>
+      <button class="token-opt" data-id="t12">DESC</button>
+      <button class="token-opt" data-id="t1">`优先级`</button>
+      <button class="token-opt" data-id="t4">AND</button>
+      <button class="token-opt" data-id="t8">GROUP BY</button>
+      <button class="token-opt" data-id="t7">'进行中'</button>
+      <button class="token-opt" data-id="t11">`创建时间`</button>
+      <button class="token-opt" data-id="t6">=</button>
+      <button class="token-opt" data-id="t3">'P0'</button>
+      <button class="token-opt" data-id="t10">ORDER BY</button>
+      <button class="token-opt" data-id="t5">`状态`</button>
+    </div>
+    <div class="puzzle-actions">
+      <button class="puzzle-submit" onclick="submitPuzzle('puzzle1')">提交</button>
+      <button class="puzzle-reset" onclick="resetPuzzle('puzzle1')">重置</button>
+      <span class="small muted" style="margin-left:4px">点已选词块可移除，拖拽可调整顺序</span>
+    </div>
+    <div class="puzzle-result" id="result1"></div>
+  </div>
+
+  <!-- ===== 分节标题 ===== -->
+  <div class="scene-subhead"><span class="tag">进阶</span>下面五题，看看哪些写法有坑</div>
+
+    <p class="small muted">这一节是互动题，点选项就能看到解析。</p>
+
+  <div class="quiz" data-answer="C">
+    <div class="quiz-h"><span class="quiz-kind">第 1 题 · 基本写法</span></div>
+    <div class="quiz-q">"筛出名称里带「支付」的需求"，下面哪个写对了？</div>
+    <div class="opt-list">
+      <button class="opt" data-k="A"><span class="k">A</span><span class="txt"><code>名称 LIKE '%支付%'</code></span></button>
+      <button class="opt" data-k="B"><span class="k">B</span><span class="txt"><code>`名称` LIKE '支付'</code></span></button>
+      <button class="opt" data-k="C"><span class="k">C</span><span class="txt"><code>`名称` LIKE '%支付%'</code></span></button>
+      <button class="opt" data-k="D"><span class="k">D</span><span class="txt"><code>`名称` = '%支付%'</code></span></button>
+    </div>
+    <div class="fb">
+      <div class="fb-t">C 正确。另外三个错在哪：</div>
+      <ul>
+        <li><strong>A</strong>：字段名忘了加反引号。字段一定要写成 <code>`名称`</code>。</li>
+        <li><strong>B</strong>：<code>LIKE</code> 的值要用 <code>%</code> 包起来，才满足包含模糊匹配的语义。</li>
+        <li><strong>D</strong>：<code>=</code> 是精确等于，它会去找名字正好叫「%支付%」的需求，一条也查不到。</li>
+      </ul>
+      <div class="ans-code">`名称` LIKE '%支付%'<button class="copy-btn" onclick="copyPlain(this)">复制</button></div>
+    </div>
+    <div class="quiz-actions"><button class="quiz-reset-btn" onclick="resetQuiz(this)">重置</button></div>
+  </div>
+
+  <div class="quiz" data-answer="B">
+    <div class="quiz-h"><span class="quiz-kind">第 2 题 · 多选字段</span></div>
+    <div class="quiz-q">「影响端」是一个<strong>多选</strong>字段。要筛出影响端包含 iOS 的需求，哪个对？</div>
+    <div class="opt-list">
+      <button class="opt" data-k="A"><span class="k">A</span><span class="txt"><code>`影响端` = 'iOS'</code></span></button>
+      <button class="opt" data-k="B"><span class="k">B</span><span class="txt"><code>ARRAY_CONTAINS(`影响端`, 'iOS')</code></span></button>
+      <button class="opt" data-k="C"><span class="k">C</span><span class="txt"><code>`影响端` LIKE '%iOS%'</code></span></button>
+      <button class="opt" data-k="D"><span class="k">D</span><span class="txt"><code>`影响端` IN ('iOS')</code></span></button>
+    </div>
+    <div class="fb">
+      <div class="fb-t">B 正确。这是最容易踩的一个点：</div>
+      <ul>
+        <li><strong>多选字段的值是一个列表</strong>，不是单个值。所以要问"这个列表里有没有 iOS"，得用 <code>ARRAY_CONTAINS</code>。</li>
+        <li><strong>A / D</strong>：用 <code>=</code> 或 <code>IN</code> 是把它当单选字段处理了。</li>
+        <li><strong>C</strong>：<code>LIKE</code> 是给文本用的，多选字段不适用。</li>
+        <li>顺带一提，<strong>选项名要写得和配置里完全一致</strong>，包括大小写。</li>
+      </ul>
+      <div class="ans-code">ARRAY_CONTAINS(`影响端`, 'iOS')<button class="copy-btn" onclick="copyPlain(this)">复制</button></div>
+    </div>
+    <div class="quiz-actions"><button class="quiz-reset-btn" onclick="resetQuiz(this)">重置</button></div>
+  </div>
+
+  <div class="quiz" data-answer="D">
+    <div class="quiz-h"><span class="quiz-kind">第 3 题 · 日期比较</span></div>
+    <div class="quiz-q">要筛出"期望上线时间已经过了"的需求，今天是 2026-08-26。哪个能查出结果？</div>
+    <div class="opt-list">
+      <button class="opt" data-k="A"><span class="k">A</span><span class="txt"><code>`期望上线时间` &lt; NOW()</code></span></button>
+      <button class="opt" data-k="B"><span class="k">B</span><span class="txt"><code>`期望上线时间` &lt; 1787616000000</code></span></button>
+      <button class="opt" data-k="C"><span class="k">C</span><span class="txt"><code>`期望上线时间` &lt; TODAY()</code></span></button>
+      <button class="opt" data-k="D"><span class="k">D</span><span class="txt"><code>`期望上线时间` &lt; '2026-08-26'</code></span></button>
+    </div>
+    <div class="fb">
+      <div class="fb-t">D 正确。这一题是个真实的坑：</div>
+      <ul>
+        <li><strong>日期比较要用日期字符串</strong>，写成 <code>'2026-08-26'</code> 这样。</li>
+        <li><strong>A / C</strong>：这两个函数在这里都用不了。</li>
+        <li><strong>B 最危险</strong>：时间戳<em>既不报错，也查不到任何数据</em>，会让你以为"真的没有这样的需求"。查询返回空的时候，先来检查一下是不是这个原因。</li>
+        <li>要表达"最近 90 天"这种相对时间，用 <code>RELATIVE_DATETIME_BETWEEN()</code>。</li>
+      </ul>
+      <div class="ans-code">`期望上线时间` &lt; '2026-08-26'<button class="copy-btn" onclick="copyPlain(this)">复制</button></div>
+    </div>
+    <div class="quiz-actions"><button class="quiz-reset-btn" onclick="resetQuiz(this)">重置</button></div>
+  </div>
+
+  <div class="quiz" data-answer="B">
+    <div class="quiz-h"><span class="quiz-kind">第 4 题 · 嵌套结构</span></div>
+    <div class="quiz-q">想表达"<strong>P0 或 P1</strong> 的需求里，<strong>没排期的</strong>那些"。哪个写法是对的？</div>
+    <div class="opt-list">
+      <button class="opt" data-k="A"><span class="k">A</span><span class="txt"><code>`优先级`='P0' OR `优先级`='P1' AND `排期` IS NULL</code></span></button>
+      <button class="opt" data-k="B"><span class="k">B</span><span class="txt"><code>(`优先级`='P0' OR `优先级`='P1') AND `排期` IS NULL</code></span></button>
+      <button class="opt" data-k="C"><span class="k">C</span><span class="txt"><code>`优先级`='P0' AND `优先级`='P1' AND `排期` IS NULL</code></span></button>
+      <button class="opt" data-k="D"><span class="k">D</span><span class="txt">A 和 B 效果一样</span></button>
+    </div>
+    <div class="fb">
+      <div class="fb-t">B 正确。这题是本节最重要的一题：</div>
+      <ul>
+        <li><strong>A 少了括号，结果完全不同</strong>：它会被理解成"P0 的全部" 加上 "P1 里没排期的"——P0 里有排期的也会被捞进来。</li>
+        <li><strong>C 逻辑上不可能</strong>：一个需求不可能同时是 P0 又是 P1，这条永远返回空。</li>
+        <li><strong>D 错</strong>：<code>AND</code> 的结合优先级比 <code>OR</code> 高，所以加不加括号是两回事。</li>
+        <li><strong>建议：不确定的时候就加括号。</strong>多写一对括号不会错，少写一对就是另一个意思了。</li>
+      </ul>
+      <div class="ans-code">(`优先级`='P0' OR `优先级`='P1') AND `排期` IS NULL<button class="copy-btn" onclick="copyPlain(this)">复制</button></div>
+      <div class="try">→ 这一题的思路，就是后面「边写边改」的核心</div>
+    </div>
+    <div class="quiz-actions"><button class="quiz-reset-btn" onclick="resetQuiz(this)">重置</button></div>
+  </div>
+
+  <div class="quiz" data-answer="A">
+    <div class="quiz-h"><span class="quiz-kind">第 5 题 · 用错地方</span></div>
+    <div class="quiz-q">在<strong>视图</strong>的 MQL 里，下面哪一句会报错？</div>
+    <div class="opt-list">
+      <button class="opt" data-k="A"><span class="k">A</span><span class="txt"><code>SELECT `name` FROM `story` WHERE ...</code></span></button>
+      <button class="opt" data-k="B"><span class="k">B</span><span class="txt"><code>`优先级` IN ('P0','P1')</code></span></button>
+      <button class="opt" data-k="C"><span class="k">C</span><span class="txt"><code>GROUP BY `业务线`</code></span></button>
+      <button class="opt" data-k="D"><span class="k">D</span><span class="txt"><code>ORDER BY `创建时间` DESC</code></span></button>
+    </div>
+    <div class="fb">
+      <div class="fb-t">A 会报错。这里有个很多人会撞的差异：</div>
+      <ul>
+        <li><strong>视图里不支持 <code>SELECT</code> 和 <code>FROM</code></strong>。因为视图的数据源是固定的，显示哪些列由表格配置决定，不用你在 MQL 里说。</li>
+        <li>视图里<strong>只需要写条件</strong>，连 <code>WHERE</code> 这个词都可以省掉，直接写 <code>`优先级` IN (...)</code> 就行。</li>
+        <li>但是——<strong>换到全局搜索和导航，支持的子句不一样。</strong>这个差异待会儿在第七章有一张完整对照表。</li>
+      </ul>
+      <div class="try">→ 记住结论：在视图里只写条件、分组、排序，别写 SELECT</div>
+    </div>
+    <div class="quiz-actions"><button class="quiz-reset-btn" onclick="resetQuiz(this)">重置</button></div>
+  </div>
+
+</section>
+
+<hr>
+
+<!-- ============ 第四章 ============ -->
+<section class="scene" id="s4">
+  <div class="scene-head">
+    <div class="scene-kicker">第四章</div>
+    <h2>编辑器：那些格式，你真的不用记</h2>
+    <p class="lead">刚才说 <code>__节点排期_结束时间</code> 不用背。现在说为什么。</p>
+  </div>
+
+  <h3>它会自己冒出来</h3>
+  <p>MQL 编辑器带完整的语法补全。你敲几个字，它把候选项列出来，<strong>按类型分好组</strong>——关键字、运算符、文本、选择、人员、时间、函数。选中回车，它按规范格式填进去。</p>
+
+  <div class="card flat">
+    <p class="small" style="margin:0">补全支持<strong>搜名称也支持搜描述</strong>。想不起函数叫什么，输入一个大概的词也能找到。所以那些下划线、前缀、反引号——<em>你从来不需要手打。</em></p>
+  </div>
+
+
+  <div class="vid">
+    <div class="vh">巧用编辑器快捷编写 MQL<span class="vlen">0:38</span></div>
+    <div class="vstage">
+      <video controls preload="metadata" playsinline
+             poster="_media/mql-editor-shortcuts-poster.png"
+             src="_media/mql-editor-shortcuts.mp4"></video>
+    </div>
+    <div class="vnote">全程键盘操作，完成 MQL 编写。<br>
+    </div>
+  </div>
+  
+  <h3>快捷键，五个就够</h3>
+  <div class="card">
+    <table style="margin:0">
+      <thead><tr><th style="width:26%">在哪</th><th style="width:32%">做什么</th><th>按键</th></tr></thead>
+      <tbody>
+        <tr><td>编辑器</td><td>执行查询</td><td><kbd>Enter</kbd></td></tr>
+        <tr><td>编辑器</td><td>换行（不执行）</td><td><kbd>Ctrl</kbd> + <kbd>Enter</kbd> <span class="muted small">/ Mac 上是</span> <kbd>⌘</kbd> + <kbd>Enter</kbd></td></tr>
+        <tr><td>补全列表</td><td>手动唤起</td><td><kbd>Space</kbd> <span class="muted small">或</span> <kbd>Shift</kbd> + <kbd>Enter</kbd></td></tr>
+        <tr><td>补全列表</td><td>上下选、回车填入</td><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd></td></tr>
+        <tr><td>补全列表</td><td>关掉它</td><td><kbd>Esc</kbd></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card flat">
+    <p class="small" style="margin:0"><strong>只有第二个需要特意记一下</strong>：换行是 <code>Ctrl/⌘ + Enter</code>，单按 <kbd>Enter</kbd> 会直接执行。写多行条件的时候容易按错。</p>
+  </div>
+
+  <h3>推荐的上手路径</h3>
+  <div class="card">
+    <table style="margin:0">
+      <thead><tr><th style="width:56px">阶段</th><th>怎么做</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill blue">先</span></td><td>照常用面板配条件，<strong>然后切过来看它生成了什么</strong>——这是最快的认知方式</td></tr>
+        <tr><td><span class="pill green">再</span></td><td>在生成的 MQL 上<strong>做微调</strong>，比如改个值、挪个括号</td></tr>
+        <tr><td><span class="pill orange">后</span></td><td>熟了直接在 MQL 里起手写，<strong>不再打开面板</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</section>
+
+<hr>
+
+<!-- ============ 第五章 ============ -->
+<section class="scene" id="s5">
+  <div class="scene-head">
+    <div class="scene-kicker">第五章</div>
+    <h2>边写边改：回到最开始那个需求</h2>
+    <p class="lead">现在你会写了。我们把开场那句话，从零开始写一遍——用一种面板做不到的顺序。</p>
+  </div>
+
+  <h3>回顾下预期配置的条件</h3>
+
+  <div class="decomp">
+    <div class="cond-group">
+      <div class="gh">第一组 · 范围</div>
+      <ul>
+        <li>优先级 · 存在选项属于 · P0, P1</li>
+      </ul>
+    </div>
+    <div class="cond-group">
+      <div class="gh">第二组 · 人员</div>
+      <ul>
+        <li>全部人员* · 存在选项属于 · 叶挺</li>
+        <li>产品负责人 · 存在选项属于 · 叶挺</li>
+        <li>评审参与人 · 存在选项属于 · 叶挺</li>
+      </ul>
+    </div>
+
+    <div class="cond-group">
+      <div class="gh">第三组 · 风险</div>
+      <ul>
+        <li>预期完成时间 · 等于 · 本月</li>
+        <li>是否完成 · 等于 · 否</li>
+        <li>是否承诺 · 等于 · 是</li>        
+        <li>待上线排期 结束时间 · 等于 · 本月</li>
+        <li>节点延期标识 · 有交集 · 延期/待上线</li>        
+      </ul>
+    </div>
+
+  </div>
+  
+  <h3>第一步 · 先全部平铺，不管结构</h3>
+  <p>把九个条件<strong>一条条列出来，全部用 AND 连着</strong>。先不想哪个该归哪组、哪些是"或"的关系。</p>
+
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code">`优先级` <span class="kw">IN</span> (<span class="str">'P0'</span>, <span class="str">'P1'</span>)
+<span class="kw">AND</span> <span class="fn">ALL_PARTICIPATE_PERSONS</span>() <span class="kw">IN</span> (<span class="str">'叶挺'</span>)
+<span class="kw">AND</span> `产品负责人` <span class="kw">IN</span> (<span class="str">'叶挺'</span>)
+<span class="kw">AND</span> `评审参与人` <span class="kw">IN</span> (<span class="str">'叶挺'</span>)
+<span class="kw">AND</span> <span class="fn">RELATIVE_DATETIME_EQ</span>(`预期完成时间`, <span class="str">'current_month'</span>)
+<span class="kw">AND</span> `是否完成` = <span class="kw">FALSE</span>
+<span class="kw">AND</span> `是否承诺` = <span class="kw">TRUE</span>
+<span class="kw">AND</span> <span class="fn">RELATIVE_DATETIME_EQ</span>(<span class="fn">GET_NODE_ATTRIBUTE</span>(<span class="str">'待上线'</span>, <span class="str">'__节点排期_结束时间'</span>), <span class="str">'current_month'</span>)
+<span class="kw">AND</span> <span class="fn">ARRAY_INTERSECT</span>(<span class="fn">RISK_LABEL</span>(), (<span class="str">'延期/待上线'</span>))</div>
+  </div>
+
+  <p>这一版<strong>逻辑是错的</strong>，没办法也没预期所有条件都满足，<em>但没关系，先写下来，再改。</em>这正是面板做不到的：面板里你没法先配一个"暂时错的"条件放着。</p>
+
+  <h3>第二步 · 加括号，把关系改对</h3>
+  <p>现在回头看，人员那三条和风险那两组，都是"任意一个成立即可"。<strong>加两对括号，把中间几个 AND 改成 OR。</strong>注意：整段一个字都不用重打。</p>
+
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code">`优先级` <span class="kw">IN</span> (<span class="str">'P0'</span>, <span class="str">'P1'</span>)
+<span class="kw">AND</span> <span class="paren hi">(</span><span class="fn">ALL_PARTICIPATE_PERSONS</span>() <span class="kw">IN</span> (<span class="str">'叶挺'</span>)
+  <span class="kw hi">OR</span> `产品负责人` <span class="kw">IN</span> (<span class="str">'叶挺'</span>) 
+  <span class="kw hi">OR</span> `评审参与人` <span class="kw">IN</span> (<span class="str">'叶挺'</span>)<span class="paren hi">)</span>
+<span class="kw">AND</span> <span class="paren hi">(</span><span class="paren hi">(</span><span class="fn">RELATIVE_DATETIME_EQ</span>(`预期完成时间`, <span class="str">'current_month'</span>)
+    <span class="kw">AND</span> `是否完成` = <span class="kw">FALSE</span>
+    <span class="kw">AND</span> `是否承诺` = <span class="kw">TRUE</span><span class="paren hi">)</span>
+  <span class="kw hi">OR</span> <span class="paren hi">(</span><span class="fn">RELATIVE_DATETIME_EQ</span>(<span class="fn">GET_NODE_ATTRIBUTE</span>(<span class="str">'待上线'</span>, <span class="str">'__节点排期_结束时间'</span>), <span class="str">'current_month'</span>)
+    <span class="kw">AND</span> <span class="fn">ARRAY_INTERSECT</span>(<span class="fn">RISK_LABEL</span>(), (<span class="str">'延期/待上线'</span>))<span class="paren hi">)</span><span class="paren hi">)</span></div>
+  </div>
+
+  <div class="card flat">
+    <p style="margin:0"><strong>动的只有括号和连接符——<em>九个条件本身一个都没重写</em>。</strong>回想一下开篇：同样这个调整，在面板里要把已配好的条件删掉、新建条件组、再一个个重配回去。</p>
+  </div>
+
+  <h3>第三步 · 认出你写出来的形状</h3>
+  <p>再看一眼刚才那段，它的形状是这样的：</p>
+
+  <div class="card">
+    <div class="small" style="font-family:var(--font-mono);line-height:2.1">
+      条件 <span style="color:var(--color-primary);font-weight:700">AND</span> <span style="color:var(--color-warning)">(</span> 条件 <span style="color:var(--color-warning);font-weight:700">OR</span> 条件 <span style="color:var(--color-warning);font-weight:700">OR</span> 条件 <span style="color:var(--color-warning)">)</span> <span style="color:var(--color-primary);font-weight:700">AND</span> <span style="color:var(--color-warning)">(</span> 组 <span style="color:var(--color-warning);font-weight:700">OR</span> 组 <span style="color:var(--color-warning)">)</span>
+    </div>
+    <p class="small" style="margin:var(--spacing-xs) 0 0"><strong>外层全是 AND，每个括号里全是 OR。</strong>每一层只用一种连接符——这就是它读起来顺的原因。</p>
+  </div>
+
+  <p>这种"每层只用一种连接符"的写法有个名字，叫<strong>合取范式</strong>（CNF）。反过来——外层全是 OR、括号里全是 AND——叫<strong>析取范式</strong>（DNF）。</p>
+
+  <div class="card" style="border-color:var(--color-primary);background:var(--color-primary-fill-light)">
+    <p style="margin:0"><strong>你不用记这两个名字。</strong>要记的是那条规律：<em>让每一层只用一种连接符，条件就能读懂。</em></p>
+  </div>
+
+  <h3>为什么这件事值得专门讲</h3>
+  <p>因为<strong>任何复杂条件都可以整理成这两种形状之一</strong>。而没整理过的条件，是这样的：</p>
+
+  <div class="grid2">
+    <div class="card" style="border-color:rgba(245,74,69,.4)">
+      <div class="small" style="font-weight:600;color:var(--color-danger);margin-bottom:6px">✗ 随手嵌出来的</div>
+      <div class="code" style="font-size:11.5px;line-height:1.75;padding:11px 13px">A <span class="kw">AND</span> <span class="paren">(</span>B <span class="kw">OR</span> <span class="paren">(</span>C <span class="kw">AND</span> <span class="paren">(</span>D <span class="kw">OR</span> E<span class="paren">)</span><span class="paren">)</span><span class="paren">)</span>
+<span class="kw">AND</span> <span class="paren">(</span>F <span class="kw">OR</span> G<span class="paren">)</span></div>
+      <p class="small muted" style="margin:8px 0 0">三层嵌套，AND 和 OR 交替。过一个月你自己都读不懂，更别说交给同事维护。</p>
+    </div>
+    <div class="card" style="border-color:rgba(53,189,75,.45)">
+      <div class="small" style="font-weight:600;color:#1a7f37;margin-bottom:6px">✓ 规范成 CNF</div>
+      <div class="code" style="font-size:11.5px;line-height:1.75;padding:11px 13px"><span class="paren">(</span>A<span class="paren">)</span>
+<span class="kw">AND</span> <span class="paren">(</span>B <span class="kw">OR</span> C<span class="paren">)</span>
+<span class="kw">AND</span> <span class="paren">(</span>B <span class="kw">OR</span> D <span class="kw">OR</span> E<span class="paren">)</span>
+<span class="kw">AND</span> <span class="paren">(</span>F <span class="kw">OR</span> G<span class="paren">)</span></div>
+      <p class="small muted" style="margin:8px 0 0">两层，每层一种连接符。一眼看出"必须同时满足四组条件"。</p>
+    </div>
+  </div>
+
+  <h3>第四步 · 不会整理？交给 AI</h3>
+  <p>这是 MQL 是文本带来的最实际的好处：<strong>它可以直接贴给 AI。</strong></p>
+
+  <div class="card flat">
+    <p class="small" style="margin:0 0 6px"><strong>可以让 AI 做的事：</strong></p>
+    <ul class="small" style="margin:0;padding-left:18px;line-height:1.9">
+      <li>"把这段条件整理成每层只用一种连接符的形式"</li>
+      <li>"这段条件我读不懂，帮我用中文说一遍它在筛什么"</li>
+      <li>"我想再加一个条件：xxx，应该加在哪一层？"</li>
+      <li>"这两段条件是不是等价的？"</li>
+    </ul>
+  </div>
+
+  <p>面板配置<strong>没法这样处理</strong>——你没办法把一屏下拉框贴给 AI 让它帮你重排。</p>
+
+</section>
+
+<hr>
+
+<!-- ============ 第六章 ============ -->
+<section class="scene" id="s6">
+  <div class="scene-head">
+    <div class="scene-kicker">第六章</div>
+    <h2>顺带说说那些你可能没见过的控件</h2>
+    <p class="lead">开场那段 MQL 里有个 <code>RISK_LABEL()</code>。它其实是一个控件——而这样的控件，还有很多。</p>
+  </div>
+
+  <p>回到刚才那段查询，风险组里有一条是 <code>ARRAY_INTERSECT(RISK_LABEL(), ('延期/待上线'))</code>——就是我们用来定义"节点维度风险"的那条。它对应筛选面板里一个叫<strong>「节点延期标识」</strong>的控件。</p>
+
+  <div class="card flat">
+    <p class="small" style="margin:0">顺便解释下为什么要套一层 <code>ARRAY_INTERSECT</code>：<strong>延期标识本身是多值的</strong>——一个需求可能同时在好几个节点上延期。所以这里问的不是"等于什么"，而是"<em>它延期的那些节点里，有没有「待上线」这一个</em>"。<span class="muted">这和多选字段用 ARRAY_CONTAINS 是同一个道理。</span></p>
+  </div>
+
+  <div class="card flat">
+    <p style="margin:0">你在面板的下拉框里，可能<strong>从没注意过它</strong>。而这样的控件——筛选、排序、分组三个模块加起来——<em>有几十种不同的用法。</em></p>
+  </div>
+
+  <p>我整理了一份完整的筛排分快查表，包含视图所有筛排分条件以及对于的 MQL 表达，每个控件能查什么、怎么写，一目了然。</p>
+
+  <div class="card" style="border-color:var(--color-primary);background:var(--color-primary-fill-light);margin-bottom:var(--spacing-md)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div style="font-weight:600;color:var(--text-title);margin-bottom:4px;font-size:14.5px">筛排分快查表</div>
+        <div class="small muted" style="margin:0">筛选、排序、分组三个模块几十种控件用法，每个能查什么、怎么写，按类型分好组，搜名称也能定位。</div>
+      </div>
+      <a href="https://bytedance.aiforce.cloud/app/app_17cs66hv449" target="_blank" rel="noopener noreferrer"
+         style="background:var(--color-primary);color:#fff;padding:9px 22px;border-radius:var(--radius-m);font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;transition:background .14s;flex-shrink:0"
+         onmouseover="this.style.background='var(--color-primary-hover)'"
+         onmouseout="this.style.background='var(--color-primary)'">
+        打开快查表 →
+      </a>
+    </div>
+  </div>
+
+  <p>这一节挑几类<strong>最有用但最容易被忽略</strong>的讲。</p>
+
+  <h3>一 · 关系类：问"关联的东西怎么样了"</h3>
+  <p>一个需求会关联多个迭代、多个缺陷、多个子任务。当你问"关联的东西怎么样了"，<strong>其实有四种不同的问法</strong>——而它们对应四种真实的业务场景。</p>
+
+  <div class="card">
+    <table style="margin:0">
+      <thead><tr><th style="width:16%">你想问</th><th style="width:35%">业务场景</th><th>MQL 写法</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="pill blue">存在一个 · 满足条件</span></td>
+          <td class="small">筛出被 P0 缺陷关联的需求 → 关注需求质量</td>
+          <td><code>ANY_RELATION_MATCH(`被关联缺陷`, x -> x.`优先级` = 'P0')</code></td>
+        </tr>
+        <tr>
+          <td><span class="pill green">每一个 · 满足条件</span></td>
+          <td class="small">筛出全部被关联缺陷都已经关闭的需求 → 可以进入下一节点</td>
+          <td><code>ALL_RELATION_MATCH(`被关联缺陷`, x -> x.`状态` = 'CLOSED')</code></td>
+        </tr>
+        <tr>
+          <td><span class="pill red">存在一个 · 不满足条件</span></td>
+          <td class="small">筛出存在被关联缺陷没有关闭的需求 → 不能跟车发布</td>
+          <td><code>NOT ALL_RELATION_MATCH(`被关联缺陷`, x -> x.`状态` = 'CLOSED')</code></td>
+        </tr>
+        <tr>
+          <td><span class="pill orange">每一个 · 不满足条件</span></td>
+          <td class="small">筛出没有被 P0 缺陷关联的需求 → 需求质量尚可</td>
+          <td><code>NONE_RELATION_MATCH(`被关联缺陷`, x -> x.`优先级` = 'P0')</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>写法上唯一要注意的是<strong>第二个参数用箭头</strong>，<code>x</code> 代表"被关联的那个东西"：</p>
+
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code"><span class="cmt">-- 关联的迭代里，还有没结束的 → 这个需求还不能算收尾</span>
+<span class="kw">NOT</span> <span class="fn">ALL_RELATION_MATCH</span>(`关联迭代`, x -&gt; x.`状态` <span class="kw">IN</span> (<span class="str">'已结束'</span>))</div>
+  </div>
+
+  <h3>二 · 时间类：四个都是"时间"，问的是四件事</h3>
+  <p>这一类最容易用错，因为名字太像。<strong>用四个字就能分清：</strong></p>
+
+  <div class="card">
+    <table style="margin:0">
+      <thead><tr><th style="width:12%">控件</th><th style="width:8%">关键字</th><th>什么场景用它</th><th style="width:45%">MQL 写法</th></tr></thead>
+      <tbody>
+        <tr><td>节点排期</td><td><span class="pill blue">计划</span></td><td class="small">查"答应了什么时候做"——估计在本周开发完的需求</td><td><code>GET_NODE_ATTRIBUTE('开发节点', '__节点排期_结束时间')</code></td></tr>
+        <tr><td>节点时间</td><td><span class="pill green">实际</span></td><td class="small">查"实际什么时候做的"——本周进入测试的有哪些</td><td><code>GET_NODE_ATTRIBUTE('测试节点', '__节点时间_开始时间')</code></td></tr>
+        <tr><td>状态时间窗口</td><td><span class="pill orange">时刻</span></td><td class="small">查"进入某状态的时刻"——这个季度关闭的缺陷</td><td><code>STATUS_TIME('CLOSED')</code></td></tr>
+        <tr><td>节点间隔</td><td><span class="pill red">时长</span></td><td class="small">按"在某节点待了多久"<strong>排序</strong>——把卡最久的捞到最前面</td><td><code>GET_NODE_ATTRIBUTE('开发节点', '完成时间') - GET_NODE_ATTRIBUTE('开发节点', '开始时间')</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card flat">
+    <p class="small" style="margin:0">顺带提一个同名不同物：<strong>「节点排期」是控件，而"排期"本身是指定工作项下的一个日期区间字段</strong>，两者不是一回事，但入参写法类似。</p>
+  </div>
+
+  <h3>一个重要提醒：不是所有控件在三个地方都能用</h3>
+  <p>同一个控件，在<strong>筛选、分组、排序</strong>里的可用性不一样。这件事清单里没有横向对比，所以很难发现。</p>
+
+  <div class="card">
+    <table style="margin:0">
+      <thead><tr><th style="width:26%">控件</th><th style="width:13%">筛选</th><th style="width:13%">分组</th><th style="width:13%">排序</th><th>这意味着</th></tr></thead>
+      <tbody>
+        <tr><td>节点间隔</td><td class="no">✗</td><td class="no">✗</td><td class="ok">✓</td><td class="small">想"筛出卡超过 5 天的"做不到，但能<strong>按卡的时长排序</strong></td></tr>
+        <tr><td>状态累计进行时间</td><td class="no">✗</td><td class="ok">✓</td><td class="ok">✓</td><td class="small">能分组能排序，不能当筛选条件</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>最后，你大概率会撞上的坑</h3>
+  <div class="grid">
+    
+    <div class="card" style="border-color:rgba(255,129,26,.45)">
+      <div class="small" style="font-weight:600;margin-bottom:6px">多值字段分组要包一层</div>
+      <div class="code" style="font-size:11.5px;padding:10px 12px;line-height:1.8"><span class="cmt">-- ✗</span>
+<span class="kw">GROUP BY</span> `关联迭代`
+<span class="cmt">-- ✓</span>
+<span class="kw">GROUP BY</span> <span class="fn">EACH_ELEMENT_OF</span>(`关联迭代`)</div>
+      <p class="small muted" style="margin:8px 0 0">一条需求可能属于多个迭代，得说明"按每个元素分别归组"。<strong>报错会直接提示你包这一层。</strong></p>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<!-- ============ 第七章 ============ -->
+<section class="scene" id="s7">
+  <div class="scene-head">
+    <div class="scene-kicker">第七章</div>
+    <h2>从一个人，到统一口径</h2>
+    <p class="lead">前面都在讲你自己怎么查。最后几分钟讲一件只有 PMO 关心的事。</p>
+  </div>
+
+  <h3>PMO 真正的难题不是查得快，是让大家查得一样</h3>
+  <p>作为 PMO，你经常需要让各业务线、各负责人、各执行者<strong>按同一套口径来看数据</strong>。比如"什么叫风险需求"、"什么叫本月重点"——这些定义必须全组一致，否则汇总上来的数字没有意义。</p>
+
+  <div class="card flat">
+    <p style="margin:0"><strong>以前这件事很难约束，也不好实操。</strong>你可以配一个视图分发出去，但一旦有人要改点什么、或者要在自己空间建一个类似的，口径就散了。你没法把"定义"本身交给他，只能交给他一个结果。</p>
+  </div>
+
+  <p>现在不一样了：<strong>MQL 就是那个定义本身。</strong></p>
+
+  <div class="card" style="border-color:var(--color-primary);background:var(--color-primary-fill-light)">
+    <p style="margin:0">把口径<strong>写成一段 MQL 沉淀下来</strong>，放进文档、放进群公告、放进规范。各业务线复制粘贴就能用，<em>而且用的是同一套定义</em>。谁要调整，改的也是同一段文字，你能看出他改了什么。</p>
+  </div>
+
+  <div class="card">
+    <table style="margin:0">
+      <thead><tr><th style="width:30%">场景</th><th>怎么做</th></tr></thead>
+      <tbody>
+        <tr><td>统一"风险需求"的定义</td><td>把那段两维度 OR 的 MQL 写进规范文档，各线直接粘。<strong>省掉每次解释"什么算风险"</strong></td></tr>
+        <tr><td>跨空间复用一套查询</td><td>MQL 是纯文本，换空间粘过去，<strong>字段名对得上就能跑</strong></td></tr>
+        <tr><td>每人看到自己的那份</td><td>一条视图配 <code>CURRENT_LOGIN_USER()</code> 分发全组，谁打开都是自己的</td></tr>
+        <tr><td>让口径能演进</td><td>定义要调整时改那段文字，同步给全组，有迹可循</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code"><span class="cmt">-- 分发给全组的同一条视图，每个人打开看到的是自己的</span>
+`当前处理人` <span class="kw">IN</span> (<span class="fn">CURRENT_LOGIN_USER</span>())</div>
+  </div>
+
+  <h3>平台里如何快捷复用？三个入口，一次看清</h3>
+  <p>这是<strong>今天最需要记住的一条硬信息</strong>——MQL 有三个入口，能写的东西不完全相同。</p>
+
+  <div class="card">
+    <table style="margin:0">
+      <thead><tr><th style="width:19%">入口</th><th style="width:13%">SELECT</th><th style="width:13%">FROM</th><th>它适合做什么</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>视图</strong></td>
+          <td class="no">✗</td><td class="no">✗</td>
+          <td class="small">日常查询主场。数据源和显示列都固定，<strong>只写条件、分组、排序</strong></td>
+        </tr>
+        <tr>
+          <td><strong>全局搜索</strong></td>
+          <td class="ok">✓</td><td class="ok">必填</td>
+          <td class="small">跨工作项类型搜索，能力最全。<strong>预览满意可一键存为视图</strong></td>
+        </tr>
+        <tr>
+          <td><strong>导航</strong></td>
+          <td class="no">✗</td><td class="ok">必填</td>
+          <td class="small">新建视图表单里粘一段 MQL，<strong>秒建带条件的视图</strong>，跳过从头配置</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card flat">
+    <p class="small" style="margin:0"><strong>三个入口都支持</strong>：条件（可省略 <code>WHERE</code>）、<code>GROUP BY</code>（多值要包 <code>EACH_ELEMENT_OF</code>）、<code>ORDER BY</code>（<code>ASC</code>/<code>DESC</code>）。<br>
+    <strong>差异只在</strong> <code>SELECT</code> / <code>FROM</code> 上。记不住就记一句：<em>视图里只写条件，全局搜索里什么都能写。</em></p>
+  </div>
+
+  <div class="card" style="border-color:var(--color-primary)">
+    <p style="margin:0"><strong>一句话收尾：MQL 不是更强，是更好读、更好改、更好传。</strong></p>
+    <p class="small muted" style="margin:8px 0 0">少数增量功能等你探索（比如单行文本字段可以用 <code>IN</code> 一次匹配多个值）。但真正的价值在于查询变成了文字：能一条条写、能最后定结构、能读懂、能剪贴、能发给同事、能交给 AI、<strong>能作为规范沉淀下来</strong>。</p>
+  </div>
+</section>
+
+<hr>
+
+
+<!-- ============ 附录：查询库 ============ -->
+<section class="scene" id="lib">
+  <div class="scene-head">
+    <div class="scene-kicker">附录 · 查询库</div>
+    <h2>按角色取用，复制改改就能跑</h2>
+    <p class="lead">飞书项目这些年沉淀下来的常用查询配置，整理成 MQL。以前只能照着截图配，现在可以直接复制。</p>
+  </div>
+
+  <h3><span class="pill blue">PMO · 治理与统一口径</span></h3>
+
+  <h4>本月交付风险需求（今天讲的那条，可作为全组统一定义）</h4>
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code">`优先级` <span class="kw">IN</span> (<span class="str">'P0'</span>, <span class="str">'P1'</span>)
+<span class="kw">AND</span> <span class="paren">(</span><span class="fn">ALL_PARTICIPATE_PERSONS</span>() <span class="kw">IN</span> (<span class="fn">CURRENT_LOGIN_USER</span>())
+  <span class="kw">OR</span> `产品负责人` <span class="kw">IN</span> (<span class="fn">CURRENT_LOGIN_USER</span>()) <span class="kw">OR</span> `评审参与人` <span class="kw">IN</span> (<span class="fn">CURRENT_LOGIN_USER</span>())<span class="paren">)</span>
+<span class="kw">AND</span> <span class="paren">(</span><span class="paren">(</span><span class="fn">RELATIVE_DATETIME_EQ</span>(`预期完成时间`, <span class="str">'current_month'</span>)
+    <span class="kw">AND</span> `是否完成` = <span class="kw">FALSE</span>
+    <span class="kw">AND</span> `是否承诺` = <span class="kw">TRUE</span><span class="paren">)</span>
+  <span class="kw">OR</span> <span class="paren">(</span><span class="fn">RELATIVE_DATETIME_EQ</span>(<span class="fn">GET_NODE_ATTRIBUTE</span>(<span class="str">'待上线'</span>, <span class="str">'__节点排期_结束时间'</span>), <span class="str">'current_month'</span>)
+    <span class="kw">AND</span> <span class="fn">ARRAY_INTERSECT</span>(<span class="fn">RISK_LABEL</span>(), (<span class="str">'延期/待上线'</span>))<span class="paren">)</span><span class="paren">)</span></div>
+  </div>
+  <p class="small muted">风险用了<strong>两个维度</strong>：实例层面（承诺了本月完成、但还没完成）+ 节点层面（待上线节点排在本月、且已挂延期标识）。要改口径就改这两组，各业务线用的是同一份定义。<br>这里把讲稿里的人名换成了 <code>CURRENT_LOGIN_USER()</code>，<strong>分发给谁，谁打开就是自己那份</strong>。</p>
+
+  <h4>答应了上线时间，却连排期都没填</h4>
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code">`期望上线时间` <span class="kw">IS NOT NULL</span>
+<span class="kw">AND</span> <span class="fn">GET_NODE_ATTRIBUTE</span>(<span class="str">'产品评审'</span>, <span class="str">'__节点排期_开始时间'</span>) <span class="kw">IS NULL</span></div>
+  </div>
+
+  <h4>各业务线的需求分布（看资源投向）</h4>
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code">`完成日期` <span class="kw">IS NULL</span>
+<span class="kw">GROUP BY</span> `业务线`
+<span class="kw">ORDER BY</span> `优先级` <span class="kw">ASC</span></div>
+  </div>
+
+  <h3><span class="pill green">研发跟进 · 卡点与流转</span></h3>
+
+  <h4>卡在评审最久的排前面</h4>
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code"><span class="kw">ORDER BY</span> <span class="fn">GET_NODE_ATTRIBUTE</span>(<span class="str">'产品评审'</span>, <span class="str">'完成时间'</span>)
+        - <span class="fn">GET_NODE_ATTRIBUTE</span>(<span class="str">'产品评审'</span>, <span class="str">'开始时间'</span>) <span class="kw">DESC</span></div>
+  </div>
+  <p class="small muted">注意：做<strong>时间差</strong>用中文属性名 <code>'完成时间'</code>；取<strong>单个时间点</strong>用带前缀的 <code>'__节点时间_开始时间'</code>。两种写法不能混用。</p>
+
+  <h4>当前卡在哪个节点，按节点看分布</h4>
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code"><span class="kw">SELECT</span> <span class="fn">JSON_ARRAYAGG</span>(`name`)
+<span class="kw">GROUP BY</span> <span class="fn">EACH_ELEMENT_OF</span>(<span class="fn">IN_PROGRESS_NODES_NAME</span>())</div>
+  </div>
+  <p class="small muted">这条带 <code>SELECT</code>，要在<strong>全局搜索</strong>里用。视图里只留 <code>GROUP BY</code> 那行。</p>
+
+  <h4>关联迭代还没全部结束的（四量词）</h4>
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code"><span class="kw">NOT</span> <span class="fn">ALL_RELATION_MATCH</span>(`关联迭代`, x -&gt; x.`状态` <span class="kw">IN</span> (<span class="str">'已结束'</span>))</div>
+  </div>
+
+  <h3><span class="pill orange">测试与质量</span></h3>
+
+  <h4>本季度关闭的缺陷</h4>
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code"><span class="fn">STATUS_TIME</span>(<span class="str">'CLOSED'</span>) <span class="kw">BETWEEN</span> <span class="str">'2026-07-01'</span> <span class="kw">AND</span> <span class="str">'2026-09-30'</span></div>
+  </div>
+
+  <h4>影响 iOS 端且带性能标签的</h4>
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code"><span class="fn">ARRAY_CONTAINS</span>(`影响端`, <span class="str">'IOS'</span>)
+<span class="kw">AND</span> <span class="fn">ARRAY_CONTAINS</span>(`标签`, <span class="str">'性能'</span>)</div>
+  </div>
+
+  <h3><span class="pill red">管理层汇报</span></h3>
+
+  <h4>一批指定编号的需求（文本 IN 多值）</h4>
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code">`需求编号` <span class="kw">IN</span> (<span class="str">'PAY-2026-001'</span>, <span class="str">'MCH-2026-002'</span>, <span class="str">'VIP-2026-003'</span>)
+<span class="cmt">-- 汇报前圈定一批要讲的，不用一个个写 = 再 OR 连起来</span></div>
+  </div>
+
+  <h4>我参与的、按最新进展排序</h4>
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code"><span class="fn">ALL_PARTICIPATE_PERSONS</span>() <span class="kw">IN</span> (<span class="fn">CURRENT_LOGIN_USER</span>())
+<span class="kw">ORDER BY</span> `更新时间` <span class="kw">DESC</span></div>
+  </div>
+
+  <h4>PM 角色参与的需求</h4>
+  <div class="code-wrap">
+    <button class="copy-btn" onclick="copyCode(this)">复制</button>
+    <div class="code"><span class="fn">PARTICIPATE_ROLES</span>() <span class="kw">IN</span> (<span class="str">'PM'</span>)</div>
+  </div>
+
+  <div class="card flat" style="margin-top:var(--spacing-xl)">
+    <p class="small" style="margin:0">以上查询真实可用，<strong>字段及选项名请按你自己空间的实际名称替换</strong>。</p>
+  </div>
+</section>
+
+<hr>
+
+<!-- ============ 附录：JQL ============ -->
+<section class="scene" id="jql">
+  <div class="scene-head">
+    <div class="scene-kicker">附录 · JQL 迁移</div>
+    <h2>从 Jira 过来的话</h2>
+    <p class="lead">用过 JQL 的话，这张表能让你几分钟上手。</p>
+  </div>
+  <div class="card">
+    <table style="margin:0">
+      <thead><tr><th style="width:42%">JQL</th><th>MQL</th></tr></thead>
+      <tbody>
+        <tr><td><code>assignee = currentUser()</code></td><td><code>`当前处理人` IN (CURRENT_LOGIN_USER())</code></td></tr>
+        <tr><td><code>priority in (P0, P1)</code></td><td><code>`优先级` IN ('P0','P1')</code></td></tr>
+        <tr><td><code>summary ~ "支付"</code></td><td><code>`名称` LIKE '%支付%'</code></td></tr>
+        <tr><td><code>duedate &lt; now()</code></td><td><code>`期望上线时间` &lt; '2026-08-26'</code><br><span class="small muted">不支持 now()，用日期字符串或相对时间函数</span></td></tr>
+        <tr><td><code>labels is EMPTY</code></td><td><code>`标签` IS NULL</code></td></tr>
+        <tr><td><code>labels = "性能"</code></td><td><code>ARRAY_CONTAINS(`标签`,'性能')</code><br><span class="small muted">多选字段要用函数，不能用 =</span></td></tr>
+        <tr><td><code>created &gt;= -90d</code></td><td><code>RELATIVE_DATETIME_BETWEEN(`创建时间`,'past','90d')</code></td></tr>
+        <tr><td><code>ORDER BY created DESC</code></td><td><code>ORDER BY `创建时间` DESC</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card flat">
+    <p class="small" style="margin:0"><strong>最大的差异：</strong>JQL 里没有"节点"这个概念。飞书项目的需求走流程节点，所以多了一整类查询——<code>GET_NODE_ATTRIBUTE()</code>、<code>IN_PROGRESS_NODES_NAME()</code>、<code>RISK_LABEL()</code> 这些在 JQL 里没有对应物，是需要新学的部分。</p>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+function doCopy(txt,btn){
+  function done(){btn.textContent='已复制';btn.classList.add('done');
+    setTimeout(function(){btn.textContent='复制';btn.classList.remove('done');},1600);}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done).catch(function(){fb(txt,done);});
+  }else{fb(txt,done);}
+  function fb(t,cb){var ta=document.createElement('textarea');ta.value=t;
+    ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');cb();}catch(e){}document.body.removeChild(ta);}
+}
+function copyCode(btn){doCopy(btn.parentElement.querySelector('.code').innerText,btn);}
+function copyPlain(btn){
+  var box=btn.parentElement.cloneNode(true);
+  var b=box.querySelector('button'); if(b) b.remove();
+  doCopy(box.innerText.trim(),btn);
+}
+
+/* 互动答题（支持重置） */
+document.querySelectorAll('.quiz[data-answer]').forEach(function(box){
+  var opts=box.querySelectorAll('.opt');
+  var fb=box.querySelector('.fb');
+  var answered=false;
+  function doReset(){
+    answered=false;
+    opts.forEach(function(o){o.classList.remove('locked','right','wrong','dim');});
+    if(fb) fb.classList.remove('show');
+  }
+  box._resetQuiz=doReset;
+  opts.forEach(function(opt){
+    opt.addEventListener('click',function(){
+      if(answered)return; answered=true;
+      var right=box.dataset.answer;
+      opts.forEach(function(o){
+        o.classList.add('locked');
+        if(o.dataset.k===right)o.classList.add('right');
+        else if(o===opt)o.classList.add('wrong');
+        else o.classList.add('dim');
+      });
+      if(fb)fb.classList.add('show');
+    });
+  });
+});
+function resetQuiz(btn){var box=btn.closest('.quiz');if(box&&box._resetQuiz)box._resetQuiz();}
+
+/* Token 选择填空（支持拖拽排序） */
+var puzzleStore={};
+function createSlot(puzzleId,tokenId,text){
+  var slot=document.createElement('span');
+  slot.className='token-slot';
+  slot.textContent=text;
+  slot.dataset.id=tokenId;
+  slot.draggable=true;
+  slot.addEventListener('click',function(){removeToken(puzzleId,tokenId,slot);});
+  slot.addEventListener('dragstart',function(e){
+    e.dataTransfer.setData('text/plain',tokenId);
+    e.dataTransfer.effectAllowed='move';
+    slot.classList.add('dragging');
+  });
+  slot.addEventListener('dragend',function(){
+    slot.classList.remove('dragging');
+  });
+  return slot;
+}
+function rerenderSlots(puzzleId){
+  var store=puzzleStore[puzzleId];if(!store)return;
+  store.slots.innerHTML='';
+  store.selected.forEach(function(tokenId){
+    var btn=Array.prototype.find.call(store.opts,function(o){return o.dataset.id===tokenId;});
+    if(!btn)return;
+    store.slots.appendChild(createSlot(puzzleId,tokenId,btn.textContent));
+  });
+  if(store.selected.length>0){
+    store.slots.classList.remove('empty');store.slots.classList.add('filled');
+  }else{
+    store.slots.classList.add('empty');store.slots.classList.remove('filled');
+  }
+}
+function initPuzzle(id){
+  var box=document.getElementById(id);if(!box)return;
+  var slots=box.querySelector('.token-slots');
+  var opts=box.querySelectorAll('.token-opt');
+  var result=box.querySelector('.puzzle-result');
+  puzzleStore[id]={selected:[],slots:slots,opts:opts,result:result};
+  opts.forEach(function(btn){
+    btn.addEventListener('click',function(){
+      if(btn.classList.contains('used'))return;
+      selectToken(id,btn.dataset.id,btn.textContent);
+    });
+  });
+  slots.addEventListener('dragover',function(e){
+    e.preventDefault();
+    e.dataTransfer.dropEffect='move';
+  });
+  slots.addEventListener('drop',function(e){
+    e.preventDefault();
+    var store=puzzleStore[id];
+    var draggedId=e.dataTransfer.getData('text/plain');
+    var targetEl=e.target.closest('.token-slot');
+    if(!draggedId||!targetEl||targetEl.dataset.id===draggedId)return;
+    var fromIdx=store.selected.indexOf(draggedId);
+    var toIdx=store.selected.indexOf(targetEl.dataset.id);
+    if(fromIdx===-1||toIdx===-1)return;
+    store.selected.splice(fromIdx,1);
+    store.selected.splice(toIdx,0,draggedId);
+    rerenderSlots(id);
+    store.result.classList.remove('show');
+  });
+}
+function selectToken(puzzleId,tokenId,text){
+  var store=puzzleStore[puzzleId];if(!store)return;
+  store.selected.push(tokenId);
+  store.slots.appendChild(createSlot(puzzleId,tokenId,text));
+  store.slots.classList.remove('empty');store.slots.classList.add('filled');
+  store.opts.forEach(function(o){if(o.dataset.id===tokenId)o.classList.add('used');});
+  store.result.classList.remove('show');
+}
+function removeToken(puzzleId,tokenId,slotEl){
+  var store=puzzleStore[puzzleId];if(!store)return;
+  var idx=store.selected.indexOf(tokenId);if(idx>-1)store.selected.splice(idx,1);
+  if(slotEl)slotEl.remove();
+  store.opts.forEach(function(o){if(o.dataset.id===tokenId)o.classList.remove('used');});
+  if(store.selected.length===0){store.slots.classList.add('empty');store.slots.classList.remove('filled');}
+}
+function submitPuzzle(puzzleId){
+  var store=puzzleStore[puzzleId];if(!store)return;
+  if(store.selected.length===0){
+    store.result.innerHTML='<span class="muted">先点几个词块拼起来吧</span>';
+    store.result.classList.add('show');return;
+  }
+  var userText=store.selected.map(function(id){
+    var btn=Array.prototype.find.call(store.opts,function(o){return o.dataset.id===id;});
+    return btn?btn.textContent:'';
+  });
+  var correctTexts=[
+    ['`优先级`','=','\'P0\'','AND','`状态`','=','\'进行中\'','GROUP BY','`业务线`','ORDER BY','`创建时间`','DESC'],
+    ['`状态`','=','\'进行中\'','AND','`优先级`','=','\'P0\'','GROUP BY','`业务线`','ORDER BY','`创建时间`','DESC']
+  ];
+  var isCorrect=correctTexts.some(function(correct){
+    return userText.length===correct.length&&userText.every(function(v,i){return v===correct[i];});
+  });
+  if(isCorrect){
+    store.result.innerHTML=
+      '<div class="ok">拼对了！这就是一条完整的 MQL：</div>'+
+      '<div class="ans-code" style="margin-top:8px">`优先级` = \'P0\' AND `状态` = \'进行中\' GROUP BY `业务线` ORDER BY `创建时间` DESC</div>'+
+      '<div class="small muted" style="margin-top:8px">两个筛选条件用 AND 连接，<strong>前后顺序不影响结果</strong>；后面跟上 GROUP BY 分组、ORDER BY 排序。</div>';
+  }else{
+    var hint=userText.length<12
+      ?'还有词块没拼完，继续点。'
+      :'顺序不对。提示：先写两个筛选条件（用 AND 连，两个条件前后可调换），再写 GROUP BY 分组，最后写 ORDER BY 排序。';
+    store.result.innerHTML='<div class="no">还差一点。</div><div class="small" style="margin-top:4px">'+hint+'</div>';
+  }
+  store.result.classList.add('show');
+}
+function resetPuzzle(puzzleId){
+  var store=puzzleStore[puzzleId];if(!store)return;
+  store.selected=[];store.slots.innerHTML='';
+  store.slots.classList.add('empty');store.slots.classList.remove('filled');
+  store.opts.forEach(function(o){o.classList.remove('used');});
+  store.result.classList.remove('show');store.result.innerHTML='';
+}
+initPuzzle('puzzle1');
+
+/* 录屏跳转点 */
+document.querySelectorAll('.vid').forEach(function(box){
+  var v=box.querySelector('video');
+  if(!v)return;
+  box.querySelectorAll('.vbeat').forEach(function(b){
+    b.addEventListener('click',function(){
+      var t=parseFloat(b.dataset.t||'0');
+      if(isNaN(t))return;
+      function seek(){ try{v.currentTime=t;}catch(e){}
+        var p=v.play(); if(p&&p.catch)p.catch(function(){}); }
+      if(v.readyState>=1){ seek(); }
+      else{ v.preload='auto'; v.addEventListener('loadedmetadata',seek,{once:true}); v.load(); }
+    });
+  });
+});
+
+/* 侧边栏高亮 */
+var navItems=Array.prototype.slice.call(document.querySelectorAll('.sidebar a.nav-item'));
+function syncNav(){
+  var best=null,bestTop=-1e9;
+  navItems.forEach(function(a){
+    var el=document.querySelector(a.getAttribute('href'));
+    if(!el)return;
+    var t=el.getBoundingClientRect().top-80;
+    if(t<=0&&t>bestTop){bestTop=t;best=a;}
+  });
+  navItems.forEach(function(a){a.classList.toggle('active',a===best);});
+}
+window.addEventListener('scroll',syncNav,{passive:true});
+window.addEventListener('load',syncNav);
+</script>
+</body>
+</html>
